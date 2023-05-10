@@ -6,10 +6,11 @@ export const getUserInfo = () => {
     method: 'GET'
   })
 }
-export const uploadFile = (data: any) => {
+export const uploadFile = (config: any) => {
   return request({
     url: '/uploadFile',
     method: 'post',
-    data
+    data: config.data,
+    onUploadProgress: config.onUploadProgress
   })
 }
