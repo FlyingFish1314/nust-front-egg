@@ -15,17 +15,26 @@
       <button @click="handleUpload">Upload</button>
     </div>
     <div>
-      <p>计算hash的进度</p>
+      <p>计算hash的进度worker</p>
       <el-progress
         :stroke-width="20"
         :text-inside="true"
         :percentage="hashProgress"
       />
     </div>
+    <div>
+      <p>计算hash的进度</p>
+      <el-progress
+        :stroke-width="20"
+        :text-inside="true"
+        :percentage="hashProgressIdele"
+      />
+    </div>
   </div>
 </template>
 
 <script lang="ts" setup>
+import sparkMD5 from 'spark-md5'
 import { getUserInfo, uploadFile } from '@/service/user'
 const fileInput = ref<HTMLInputElement | null>(null)
 const file = ref<File | null>(null)
@@ -100,11 +109,50 @@ const calculateHashWorker = (chunks: any) => {
     worker.postMessage({ chunks })
     worker.onmessage = (e) => {
       const { progress, hash } = e.data
+      console.log(
+        '🚀 ~ file: index.vue:103 ~ returnnewPromise ~ progress:',
+        progress
+      )
       hashProgress.value = Number((progress as number).toFixed(2))
       if (hash) {
         resolve(hash)
       }
     }
+  })
+}
+const hashProgressIdele = ref(0)
+const caluateHashIdle = (chunks: any) => {
+  return new Promise((resolve) => {
+    const spark = new sparkMD5.ArrayBuffer()
+    let count = 0
+
+    const appendToSpark = (file: any): Promise<void> => {
+      return new Promise((resolve) => {
+        const reader = new FileReader()
+        reader.readAsArrayBuffer(file)
+        reader.onload = (e) => {
+          spark.append(e.target?.result)
+          resolve()
+        }
+      })
+    }
+    const workLoop = async (deadLine: any) => {
+      while (count < chunks.length && deadLine.timeRemaining() > 1) {
+        // 空闲时间，且有任务
+        await appendToSpark(chunks[count].file)
+        count++
+        if (count < chunks.length) {
+          hashProgressIdele.value = Number(
+            ((100 * count) / chunks.length).toFixed(2)
+          )
+        } else {
+          hashProgressIdele.value = 100
+          resolve(spark.end())
+        }
+      }
+      window.requestIdleCallback(workLoop)
+    }
+    window.requestIdleCallback(workLoop)
   })
 }
 
@@ -115,9 +163,10 @@ const handleUpload = async () => {
     //   return
     // }
     const chunks = createFileChunk(file.value)
-    console.log('🚀 ~ file: index.vue:95 ~ handleUpload ~ chunks:', chunks)
     const hash = await calculateHashWorker(chunks)
-    console.log('🚀 ~ file: index.vue:120 ~ handleUpload ~ hash:', hash)
+    console.log('🚀 ~ file: index.vue:125 ~ handleUpload ~ hash:', hash)
+    const hash1 = await caluateHashIdle(chunks)
+    console.log('🚀 ~ file: index.vue:127 ~ handleUpload ~ hash1:', hash1)
     // const formData = new FormData()
     // formData.append('file', file.value)
     // formData.append('name', 'file')
