@@ -20,9 +20,14 @@ const request = new Request({
   timeout: 1000 * 60 * 5,
   interceptors: {
     // 请求拦截器
-    requestInterceptors: (config) => config,
+    requestInterceptors: (config) => {
+      console.log(localStorage.getItem('token'))
+      config.headers.Authorization = 'Bearer ' + localStorage.getItem('token')
+      return config
+    },
     // 响应拦截器
     responseInterceptors: (result: AxiosResponse) => {
+      console.log('🚀 ~ file: index.ts:33 ~ result:', result)
       return result
     }
   }

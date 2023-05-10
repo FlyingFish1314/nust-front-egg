@@ -8,7 +8,6 @@
       @select="handleSelect"
     >
       <el-menu-item index="/">首页</el-menu-item>
-      <div class="flex-grow" />
       <el-menu-item index="/personCenter">个人中心</el-menu-item>
       <el-menu-item index="/login">登录</el-menu-item>
     </el-menu>
