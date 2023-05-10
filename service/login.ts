@@ -18,6 +18,7 @@ export const getRegister = (data: IRegisterReq) => {
 }
 
 export const getSendCode = (data: string) => {
+  console.log('🚀 ~ file: login.ts:21 ~ getSendCode ~ data:', data)
   return request({
     url: `/sendcode?email=${data}`,
     method: 'get'

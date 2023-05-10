@@ -4,9 +4,9 @@ import Request from './request'
 import type { RequestConfig } from './request/types'
 
 export interface YWZResponse<T> {
-  code: number
+  statusCode: number
   desc: string
-  data: T
+  result: T
 }
 
 // 重写返回类型
@@ -16,17 +16,11 @@ interface YWZRequestConfig<T, R> extends RequestConfig<YWZResponse<R>> {
 
 const request = new Request({
   // baseURL: import.meta.env.BASE_URL,
-  baseURL: 'http://localhost:3000/api/',
+  baseURL: 'http://localhost:3000/api',
   timeout: 1000 * 60 * 5,
   interceptors: {
     // 请求拦截器
-    requestInterceptors: (config) => {
-      const token = localStorage.getItem('token')
-      if (token) {
-        config.headers.common.Authorization = 'Bearer ' + token
-      }
-      return config
-    },
+    requestInterceptors: (config) => config,
     // 响应拦截器
     responseInterceptors: (result: AxiosResponse) => {
       return result

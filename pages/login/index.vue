@@ -107,7 +107,7 @@ const sendCode = async () => {
     ruleForm.email
   )
   const result = await getSendCode(ruleForm.email)
-  console.log(result)
+  console.log('🚀 ~ file: index.vue:110 ~ sendCode ~ result:', result)
 
   countdown.value = 60
   const timer = setInterval(() => {

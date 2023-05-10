@@ -34,8 +34,11 @@
 
 <script setup lang="ts">
 import type { FormRules, FormInstance } from 'element-plus'
+import { ElMessage } from 'element-plus'
+import { useRouter } from 'vue-router'
 import { getRegister } from '~/service/login'
 import { IRegisterReq } from '@/interface/login'
+const router = useRouter()
 // import request from '@/service'
 
 const ruleFormRef = ref<FormInstance>()
@@ -89,11 +92,23 @@ const submitForm = async (formEl: FormInstance | undefined) => {
     if (valid) {
       const result = await getRegister(ruleForm)
       console.log(result)
-
+      if (result.code === 0) {
+        ElMessage({
+          message: '注册成功',
+          type: 'success'
+        })
+        setTimeout(() => {
+          router.push({ path: '/login' })
+        }, 1500)
+      }
       ruleForm.captcha = ''
       formEl.resetFields()
     } else {
       console.log('error submit!', fields)
+      ElMessage({
+        message: '注册失败',
+        type: 'error'
+      })
     }
   })
 }

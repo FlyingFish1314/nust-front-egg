@@ -2,18 +2,11 @@
   <div class="layout">
     <div class="header">
       <headerLayout></headerLayout>
-      <div>
-        <NuxtLink to="/">
-          <button>Home |</button>
-        </NuxtLink>
-
-        <NuxtLink to="/login">
-          <button>login</button>
-        </NuxtLink>
-      </div>
     </div>
     <!-- 页面的内容 -->
-    <slot></slot>
+    <div class="content">
+      <slot></slot>
+    </div>
     <div class="footer">我是footer</div>
   </div>
 </template>
@@ -25,7 +18,10 @@ import headerLayout from './components/header-layout.vue'
 .header {
   text-align: center;
 }
-
+.content {
+  width: 1150px;
+  margin: 0 auto;
+}
 .footer {
   text-align: center;
 }
