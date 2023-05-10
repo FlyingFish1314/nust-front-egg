@@ -14,6 +14,14 @@
       </div>
       <button @click="handleUpload">Upload</button>
     </div>
+    <div>
+      <p>计算hash的进度</p>
+      <el-progress
+        :stroke-width="20"
+        :text-inside="true"
+        :percentage="hashProgress"
+      />
+    </div>
   </div>
 </template>
 
@@ -74,27 +82,56 @@ const isImage = async (file: any) => {
   return (await isGif(file)) || (await isPng(file)) || (await isJpg(file))
 }
 
-const handleUpload = async () => {
-  if (file.value) {
-    if (!(await isImage(file.value))) {
-      alert('文件格式不对')
-      return
-    }
+const CHUNK_SIZE = 0.5 * 1024 * 1024
+const createFileChunk = (file: any, size = CHUNK_SIZE) => {
+  const chunks = []
+  let cur = 0
+  while (cur < file.size) {
+    chunks.push({ index: cur, file: file.slice(cur, cur * size) })
+    cur += size
+  }
+  return chunks
+}
 
-    const formData = new FormData()
-    formData.append('file', file.value)
-    formData.append('name', 'file')
-    // send formData to server
-    const config = {
-      data: formData,
-      onUploadProgress: (progressEvent: any) => {
-        uploadProgress.value = Number(
-          ((progressEvent.loaded / progressEvent.total) * 100).toFixed(2)
-        )
+const hashProgress = ref(0)
+const calculateHashWorker = (chunks: any) => {
+  return new Promise((resolve) => {
+    const worker = new Worker('/hash.js')
+    worker.postMessage({ chunks })
+    worker.onmessage = (e) => {
+      const { progress, hash } = e.data
+      hashProgress.value = Number((progress as number).toFixed(2))
+      if (hash) {
+        resolve(hash)
       }
     }
-    const res = await uploadFile(config)
-    console.log('🚀 ~ file: index.vue:31 ~ handleUpload ~ res:', res)
+  })
+}
+
+const handleUpload = async () => {
+  if (file.value) {
+    // if (!(await isImage(file.value))) {
+    //   alert('文件格式不对')
+    //   return
+    // }
+    const chunks = createFileChunk(file.value)
+    console.log('🚀 ~ file: index.vue:95 ~ handleUpload ~ chunks:', chunks)
+    const hash = await calculateHashWorker(chunks)
+    console.log('🚀 ~ file: index.vue:120 ~ handleUpload ~ hash:', hash)
+    // const formData = new FormData()
+    // formData.append('file', file.value)
+    // formData.append('name', 'file')
+    // // send formData to server
+    // const config = {
+    //   data: formData,
+    //   onUploadProgress: (progressEvent: any) => {
+    //     uploadProgress.value = Number(
+    //       ((progressEvent.loaded / progressEvent.total) * 100).toFixed(2)
+    //     )
+    //   }
+    // }
+    // const res = await uploadFile(config)
+    // console.log('🚀 ~ file: index.vue:31 ~ handleUpload ~ res:', res)
   }
 }
 

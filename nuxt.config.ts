@@ -14,5 +14,17 @@ export default defineNuxtConfig({
         changeOrigin: true
       }
     }
+  },
+  app: {
+    head: {
+      script: [
+        {
+          src: '/spark-md5.min.js'
+        },
+        {
+          src: '/hash.js'
+        }
+      ]
+    }
   }
 })

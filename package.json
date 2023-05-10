@@ -39,7 +39,8 @@
     "element-plus": "^2.3.4",
     "normalize.css": "^8.0.1",
     "pinia": "^2.0.35",
-    "save": "^2.9.0"
+    "save": "^2.9.0",
+    "spark-md5": "^3.0.2"
   },
   "config": {
     "commitizen": {
