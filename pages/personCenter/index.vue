@@ -156,6 +156,42 @@ const caluateHashIdle = (chunks: any) => {
   })
 }
 
+const calculateHashSample = (file: any) => {
+  return new Promise((resolve) => {
+    const spark = new sparkMD5.ArrayBuffer()
+    const reader = new FileReader()
+
+    const fileCur = file
+    const size = fileCur.size
+    const offset = 2 * 1024 * 1024
+    // 第一个为2M,最后一个区块数据全要
+    const chunks = [file.slice(0, offset)]
+
+    let cur = offset
+    while (cur < size) {
+      if (cur + offset >= size) {
+        // 最后一个区块
+        chunks.push(file.slice(cur, cur + offset))
+      } else {
+        // 中间区块
+        const mid = cur + offset / 2
+        const end = cur + offset
+        chunks.push(file.slice(cur, cur + 2))
+        chunks.push(file.slice(cur, mid + 2))
+        chunks.push(file.slice(end - 2, end))
+      }
+      cur += offset
+    }
+    // 中间的，去前中后个两个字节
+    reader.readAsArrayBuffer(new Blob(chunks))
+    reader.onload = (e) => {
+      spark.append(e.target?.result)
+      hashProgress.value = 100
+      resolve(spark.end())
+    }
+  })
+}
+
 const handleUpload = async () => {
   if (file.value) {
     // if (!(await isImage(file.value))) {
@@ -163,10 +199,12 @@ const handleUpload = async () => {
     //   return
     // }
     const chunks = createFileChunk(file.value)
-    const hash = await calculateHashWorker(chunks)
-    console.log('🚀 ~ file: index.vue:125 ~ handleUpload ~ hash:', hash)
-    const hash1 = await caluateHashIdle(chunks)
-    console.log('🚀 ~ file: index.vue:127 ~ handleUpload ~ hash1:', hash1)
+    // const hash = await calculateHashWorker(chunks)
+    // console.log('🚀 ~ file: index.vue:125 ~ handleUpload ~ hash:', hash)
+    // const hash1 = await caluateHashIdle(chunks)
+    // console.log('🚀 ~ file: index.vue:127 ~ handleUpload ~ hash1:', hash1)
+    const hash2 = await calculateHashSample(file.value)
+    console.log('🚀 ~ file: index.vue:207 ~ handleUpload ~ hash2:', hash2)
     // const formData = new FormData()
     // formData.append('file', file.value)
     // formData.append('name', 'file')
