@@ -21,13 +21,10 @@ const request = new Request({
   interceptors: {
     // 请求拦截器
     requestInterceptors: (config) => {
-      console.log(localStorage.getItem('token'))
-      config.headers.Authorization = 'Bearer ' + localStorage.getItem('token')
       return config
     },
     // 响应拦截器
     responseInterceptors: (result: AxiosResponse) => {
-      console.log('🚀 ~ file: index.ts:33 ~ result:', result)
       return result
     }
   }

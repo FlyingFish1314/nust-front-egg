@@ -31,9 +31,55 @@ const handleFileChange = (event: Event) => {
   }
 }
 
+const blobToString = (blob: any): Promise<string> => {
+  return new Promise((resolve) => {
+    const reader = new FileReader()
+    reader.onload = function () {
+      console.log(reader.result)
+      const ret = (reader.result as string)
+        .split('')
+        .map((v: any) => v.charCodeAt())
+        .map((v: any) => v.toString(16).toUpperCase())
+        .join(' ')
+      resolve(ret)
+    }
+    reader.readAsBinaryString(blob)
+  })
+}
+
+const isGif = async (file: any) => {
+  // console.log('🚀 ~ file: index.vue:35 ~ isGif ~ file:', file)
+  // 前面6个16进制 47 49 46 38 39 61  ||  47 49 46 38 37 61
+  const ret = await blobToString(file.slice(0, 6))
+  const isGif = ret === '47 49 46 38 39 61' || ret === '47 49 46 38 37 61'
+  return isGif
+}
+
+const isPng = async (file: any) => {
+  const ret = await blobToString(file.slice(0, 8))
+  console.log('🚀 ~ file: index.vue:60 ~ isPng ~ ret:', ret)
+  const isPng = ret === '89 50 4E 47 D A 1A A'
+  return isPng
+}
+const isJpg = async (file: any) => {
+  const len = file.size
+  const start = await blobToString(file.slice(0, 2))
+  const tail = await blobToString(file.slice(-2, len))
+  const isJpg = start === 'FF D8' && tail === 'FF D9'
+  return isJpg
+}
+
+const isImage = async (file: any) => {
+  // 通过文件流来判定
+  return (await isGif(file)) || (await isPng(file)) || (await isJpg(file))
+}
+
 const handleUpload = async () => {
   if (file.value) {
-    console.log(file.value)
+    if (!(await isImage(file.value))) {
+      alert('文件格式不对')
+      return
+    }
 
     const formData = new FormData()
     formData.append('file', file.value)
@@ -42,8 +88,9 @@ const handleUpload = async () => {
     const config = {
       data: formData,
       onUploadProgress: (progressEvent: any) => {
-        uploadProgress.value =
-          ((progressEvent.loaded / progressEvent.total) * 100) | 0
+        uploadProgress.value = Number(
+          ((progressEvent.loaded / progressEvent.total) * 100).toFixed(2)
+        )
       }
     }
     const res = await uploadFile(config)
