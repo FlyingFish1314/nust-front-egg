@@ -38,6 +38,7 @@
         :percentage="uploadProgressComputed"
       />
     </div>
+
     <div>
       <div class="cube-container" :style="{ width: cubeWidth + 'px' }">
         <!-- progress <0 报错显示红色 ===100 成功显示绿色 彼得数字：显示高度 -->
@@ -48,6 +49,7 @@
               success: chunk.progress === 100,
               error: chunk.progress < 0
             }"
+            :style="{ height: chunk.progress + '%' }"
           >
             <el-icon
               v-if="chunk.progress < 100 && chunk.progress > 0"
@@ -59,6 +61,9 @@
         </div>
       </div>
     </div>
+    <pre>
+      {{ chunks }}
+    </pre>
   </div>
 </template>
 
@@ -72,16 +77,25 @@ const uploadProgress = ref(0)
 const chunks = ref<Array<any>>([])
 
 const cubeWidth = computed(() => {
+  console.log(2)
+
   return Math.ceil(Math.sqrt(chunks.value.length)) * 16
 })
 const uploadProgressComputed = computed(() => {
-  if (!file.value || chunks.value.length) {
+  if (!file.value || chunks.value.length === 0) {
     return 0
   }
+  console.log(
+    '🚀 ~ file: index.vue:81 ~ uploadProgressComputed ~ chunks.value:',
+    chunks.value
+  )
   const loaded = chunks.value
-    .map((item) => item.chunk.size * item.progress)
-    .reduce((arr, cur) => arr + cur, 0)
-  return parseInt(((loaded * 100) / file.value.size).toFixed(2))
+    .map((item) => {
+      return item.chunk.size * item.progress
+    })
+    .reduce((acc, cur) => acc + cur, 0)
+  const num = Number(((loaded * 100) / file.value.size).toFixed(2))
+  return num
 })
 const handleFileChange = (event: Event) => {
   const target = event.target as HTMLInputElement
@@ -133,12 +147,12 @@ const isImage = async (file: any) => {
   return (await isGif(file)) || (await isPng(file)) || (await isJpg(file))
 }
 
-const CHUNK_SIZE = 0.1 * 1024 * 1024
-const createFileChunk = (file: any, size = CHUNK_SIZE) => {
+const CHUNK_SIZE = 0.5 * 1024 * 1024
+const createFileChunk = (size = CHUNK_SIZE) => {
   const chunks = []
   let cur = 0
-  while (cur < file.size) {
-    chunks.push({ index: cur, file: file.slice(cur, cur * size) })
+  while (cur < (file.value as any).size) {
+    chunks.push({ index: cur, file: file.value?.slice(cur, cur * size) })
     cur += size
   }
   return chunks
@@ -151,10 +165,6 @@ const calculateHashWorker = (chunks: any) => {
     worker.postMessage({ chunks })
     worker.onmessage = (e) => {
       const { progress, hash } = e.data
-      console.log(
-        '🚀 ~ file: index.vue:103 ~ returnnewPromise ~ progress:',
-        progress
-      )
       hashProgress.value = Number((progress as number).toFixed(2))
       if (hash) {
         resolve(hash)
@@ -198,35 +208,34 @@ const caluateHashIdle = (chunks: any) => {
   })
 }
 
-const calculateHashSample = (file: any) => {
+const calculateHashSample = function () {
   return new Promise((resolve) => {
     const spark = new sparkMD5.ArrayBuffer()
     const reader = new FileReader()
 
-    const fileCur = file
-    const size = fileCur.size
+    const size = (file.value as any).size
     const offset = 2 * 1024 * 1024
     // 第一个为2M,最后一个区块数据全要
-    const chunks = [file.slice(0, offset)]
+    const chunks = [file.value?.slice(0, offset)]
 
     let cur = offset
     while (cur < size) {
       if (cur + offset >= size) {
         // 最后一个区块
-        chunks.push(file.slice(cur, cur + offset))
+        chunks.push(file.value?.slice(cur, cur + offset))
       } else {
         // 中间区块
         const mid = cur + offset / 2
         const end = cur + offset
-        chunks.push(file.slice(cur, cur + 2))
-        chunks.push(file.slice(cur, mid + 2))
-        chunks.push(file.slice(end - 2, end))
+        chunks.push(file.value?.slice(cur, cur + 2))
+        chunks.push(file.value?.slice(cur, mid + 2))
+        chunks.push(file.value?.slice(end - 2, end))
       }
       cur += offset
     }
     // 中间的，去前中后个两个字节
-    reader.readAsArrayBuffer(new Blob(chunks))
-    reader.onload = (e) => {
+    reader.readAsArrayBuffer(new Blob(chunks as any))
+    reader.onload = (e: any) => {
       spark.append(e.target?.result)
       hashProgress.value = 100
       resolve(spark.end())
@@ -240,12 +249,12 @@ const handleUpload = async () => {
     //   alert('文件格式不对')
     //   return
     // }
-    const newChunks = createFileChunk(file.value)
+    const newChunks = createFileChunk()
     // const hash = await calculateHashWorker(chunks)
     // console.log('🚀 ~ file: index.vue:125 ~ handleUpload ~ hash:', hash)
     // const hash1 = await caluateHashIdle(chunks)
     // console.log('🚀 ~ file: index.vue:127 ~ handleUpload ~ hash1:', hash1)
-    const hash2 = await calculateHashSample(file.value)
+    const hash2 = await calculateHashSample()
 
     chunks.value = newChunks.map((chunk, index) => {
       // 切片的名字 hash + index
@@ -254,7 +263,8 @@ const handleUpload = async () => {
         hash: hash2,
         name,
         index,
-        chunk: chunk.file
+        chunk: chunk.file,
+        progress: 0
       }
     })
 
@@ -283,21 +293,28 @@ const uploadChunks = async () => {
       form.append('chunk', chunk.chunk)
       form.append('hash', chunk.hash)
       form.append('name', chunk.name)
-      return { form }
+      console.warn(form)
+      return form
     })
-    .map((form: any, index: any) =>
-      uploadFile({
+    .map(async (form: any, index: any) => {
+      console.log('🚀 ~ file: index.vue:323 ~ .map ~ form:', form)
+      const config = {
+        data: form,
         onUploadProgress: (progressEvent: any) => {
           // 不是整体的进度条了，而是每个区块有自己的进度条，怎提的进度条需要计算
           chunks.value[index].progress = Number(
             ((progressEvent.loaded / progressEvent.total) * 100).toFixed(2)
           )
         }
-      })
-    )
+      }
+      return await uploadFile(config)
+    })
+
   // @todo 并发量控制
   await Promise.all(requests)
 }
+
+const mergeRequest = async () => {}
 
 const bindEvents = function () {
   const dragDom = drag.value
@@ -341,7 +358,7 @@ onMounted(async () => {
     background: #eee;
     float: left;
     .success {
-      background-color: greenyellow;
+      background-color: green;
     }
     .uploading {
       background-color: rgb(12, 131, 228);

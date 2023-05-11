@@ -7,6 +7,7 @@ export const getUserInfo = () => {
   })
 }
 export const uploadFile = (config: any) => {
+  console.log('🚀 ~ file: user.ts:10 ~ uploadFile ~ config:', config.data)
   return request({
     url: '/uploadFile',
     method: 'post',
