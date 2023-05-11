@@ -69,13 +69,13 @@
 
 <script lang="ts" setup>
 import sparkMD5 from 'spark-md5'
-import { getUserInfo, uploadFile } from '@/service/user'
+import { getUserInfo, uploadFile, mergeFile } from '@/service/user'
 const fileInput = ref<HTMLInputElement | null>(null)
 const file = ref<File | null>(null)
 const drag = ref<HTMLDivElement | null>(null)
 const uploadProgress = ref(0)
 const chunks = ref<Array<any>>([])
-
+const hash = ref<any>('')
 const cubeWidth = computed(() => {
   console.log(2)
 
@@ -94,7 +94,8 @@ const uploadProgressComputed = computed(() => {
       return item.chunk.size * item.progress
     })
     .reduce((acc, cur) => acc + cur, 0)
-  const num = Number(((loaded * 100) / file.value.size).toFixed(2))
+  const num = Number((loaded / file.value.size).toFixed(2))
+  console.log('🚀 ~ file: index.vue:98 ~ uploadProgressComputed ~ num:', num)
   return num
 })
 const handleFileChange = (event: Event) => {
@@ -147,12 +148,12 @@ const isImage = async (file: any) => {
   return (await isGif(file)) || (await isPng(file)) || (await isJpg(file))
 }
 
-const CHUNK_SIZE = 0.5 * 1024 * 1024
+const CHUNK_SIZE = 1 * 1024 * 1024
 const createFileChunk = (size = CHUNK_SIZE) => {
   const chunks = []
   let cur = 0
   while (cur < (file.value as any).size) {
-    chunks.push({ index: cur, file: file.value?.slice(cur, cur * size) })
+    chunks.push({ index: cur, file: file.value?.slice(cur, cur + size) })
     cur += size
   }
   return chunks
@@ -183,7 +184,7 @@ const caluateHashIdle = (chunks: any) => {
         const reader = new FileReader()
         reader.readAsArrayBuffer(file)
         reader.onload = (e) => {
-          spark.append(e.target?.result)
+          spark.append(e.target?.result as any)
           resolve()
         }
       })
@@ -249,18 +250,22 @@ const handleUpload = async () => {
     //   alert('文件格式不对')
     //   return
     // }
-    const newChunks = createFileChunk()
+    chunks.value = createFileChunk()
+    console.log(
+      '🚀 ~ file: index.vue:253 ~ handleUpload ~ chunks.value:',
+      chunks.value
+    )
     // const hash = await calculateHashWorker(chunks)
     // console.log('🚀 ~ file: index.vue:125 ~ handleUpload ~ hash:', hash)
     // const hash1 = await caluateHashIdle(chunks)
     // console.log('🚀 ~ file: index.vue:127 ~ handleUpload ~ hash1:', hash1)
     const hash2 = await calculateHashSample()
-
-    chunks.value = newChunks.map((chunk, index) => {
+    hash.value = hash2
+    chunks.value = chunks.value.map((chunk, index) => {
       // 切片的名字 hash + index
-      const name = hash2 + '-' + index
+      const name = hash.value + '-' + index
       return {
-        hash: hash2,
+        hash: hash.value,
         name,
         index,
         chunk: chunk.file,
@@ -312,9 +317,18 @@ const uploadChunks = async () => {
 
   // @todo 并发量控制
   await Promise.all(requests)
+  await mergeRequest()
 }
 
-const mergeRequest = async () => {}
+const mergeRequest = async () => {
+  await mergeFile({
+    data: {
+      ext: (file.value?.name as string)?.split('.').pop(),
+      size: CHUNK_SIZE,
+      hash: hash.value
+    }
+  })
+}
 
 const bindEvents = function () {
   const dragDom = drag.value

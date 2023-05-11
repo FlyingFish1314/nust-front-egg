@@ -15,3 +15,11 @@ export const uploadFile = (config: any) => {
     onUploadProgress: config.onUploadProgress
   })
 }
+
+export const mergeFile = (config: any) => {
+  return request({
+    url: '/mergeFile',
+    method: 'POST',
+    data: config.data
+  })
+}
