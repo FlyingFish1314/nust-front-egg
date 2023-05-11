@@ -30,6 +30,35 @@
         :percentage="hashProgressIdele"
       />
     </div>
+    <div>
+      <p>网格的总进度</p>
+      <el-progress
+        :stroke-width="20"
+        :text-inside="true"
+        :percentage="uploadProgressComputed"
+      />
+    </div>
+    <div>
+      <div class="cube-container" :style="{ width: cubeWidth + 'px' }">
+        <!-- progress <0 报错显示红色 ===100 成功显示绿色 彼得数字：显示高度 -->
+        <div v-for="chunk in chunks" :key="chunk.name" class="cube">
+          <div
+            :class="{
+              uploading: chunk.progress > 0 && chunk.progress < 100,
+              success: chunk.progress === 100,
+              error: chunk.progress < 0
+            }"
+          >
+            <el-icon
+              v-if="chunk.progress < 100 && chunk.progress > 0"
+              class="is-loading"
+            >
+              <Loading />
+            </el-icon>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -40,7 +69,20 @@ const fileInput = ref<HTMLInputElement | null>(null)
 const file = ref<File | null>(null)
 const drag = ref<HTMLDivElement | null>(null)
 const uploadProgress = ref(0)
+const chunks = ref<Array<any>>([])
 
+const cubeWidth = computed(() => {
+  return Math.ceil(Math.sqrt(chunks.value.length)) * 16
+})
+const uploadProgressComputed = computed(() => {
+  if (!file.value || chunks.value.length) {
+    return 0
+  }
+  const loaded = chunks.value
+    .map((item) => item.chunk.size * item.progress)
+    .reduce((arr, cur) => arr + cur, 0)
+  return parseInt(((loaded * 100) / file.value.size).toFixed(2))
+})
 const handleFileChange = (event: Event) => {
   const target = event.target as HTMLInputElement
   if (target.files && target.files.length > 0) {
@@ -91,7 +133,7 @@ const isImage = async (file: any) => {
   return (await isGif(file)) || (await isPng(file)) || (await isJpg(file))
 }
 
-const CHUNK_SIZE = 0.5 * 1024 * 1024
+const CHUNK_SIZE = 0.1 * 1024 * 1024
 const createFileChunk = (file: any, size = CHUNK_SIZE) => {
   const chunks = []
   let cur = 0
@@ -198,13 +240,25 @@ const handleUpload = async () => {
     //   alert('文件格式不对')
     //   return
     // }
-    const chunks = createFileChunk(file.value)
+    const newChunks = createFileChunk(file.value)
     // const hash = await calculateHashWorker(chunks)
     // console.log('🚀 ~ file: index.vue:125 ~ handleUpload ~ hash:', hash)
     // const hash1 = await caluateHashIdle(chunks)
     // console.log('🚀 ~ file: index.vue:127 ~ handleUpload ~ hash1:', hash1)
     const hash2 = await calculateHashSample(file.value)
-    console.log('🚀 ~ file: index.vue:207 ~ handleUpload ~ hash2:', hash2)
+
+    chunks.value = newChunks.map((chunk, index) => {
+      // 切片的名字 hash + index
+      const name = hash2 + '-' + index
+      return {
+        hash: hash2,
+        name,
+        index,
+        chunk: chunk.file
+      }
+    })
+
+    await uploadChunks()
     // const formData = new FormData()
     // formData.append('file', file.value)
     // formData.append('name', 'file')
@@ -220,6 +274,29 @@ const handleUpload = async () => {
     // const res = await uploadFile(config)
     // console.log('🚀 ~ file: index.vue:31 ~ handleUpload ~ res:', res)
   }
+}
+
+const uploadChunks = async () => {
+  const requests = chunks.value
+    .map((chunk: any, index: any) => {
+      const form = new FormData()
+      form.append('chunk', chunk.chunk)
+      form.append('hash', chunk.hash)
+      form.append('name', chunk.name)
+      return { form }
+    })
+    .map((form: any, index: any) =>
+      uploadFile({
+        onUploadProgress: (progressEvent: any) => {
+          // 不是整体的进度条了，而是每个区块有自己的进度条，怎提的进度条需要计算
+          chunks.value[index].progress = Number(
+            ((progressEvent.loaded / progressEvent.total) * 100).toFixed(2)
+          )
+        }
+      })
+    )
+  // @todo 并发量控制
+  await Promise.all(requests)
 }
 
 const bindEvents = function () {
@@ -254,5 +331,24 @@ onMounted(async () => {
   border: 2px dashed #eee;
   text-align: center;
   vertical-align: middle;
+}
+.cube-container {
+  .cube {
+    width: 14px;
+    height: 14px;
+    line-height: 12px;
+    border: 1px black solid;
+    background: #eee;
+    float: left;
+    .success {
+      background-color: greenyellow;
+    }
+    .uploading {
+      background-color: rgb(12, 131, 228);
+    }
+    .error {
+      background-color: red;
+    }
+  }
 }
 </style>
