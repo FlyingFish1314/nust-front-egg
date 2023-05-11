@@ -23,3 +23,11 @@ export const mergeFile = (config: any) => {
     data: config.data
   })
 }
+
+export const checkFile = (config: any) => {
+  return request({
+    url: '/checkFile',
+    method: 'POST',
+    data: config.data
+  })
+}

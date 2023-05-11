@@ -69,7 +69,7 @@
 
 <script lang="ts" setup>
 import sparkMD5 from 'spark-md5'
-import { getUserInfo, uploadFile, mergeFile } from '@/service/user'
+import { getUserInfo, uploadFile, mergeFile, checkFile } from '@/service/user'
 const fileInput = ref<HTMLInputElement | null>(null)
 const file = ref<File | null>(null)
 const drag = ref<HTMLDivElement | null>(null)
@@ -85,17 +85,12 @@ const uploadProgressComputed = computed(() => {
   if (!file.value || chunks.value.length === 0) {
     return 0
   }
-  console.log(
-    '🚀 ~ file: index.vue:81 ~ uploadProgressComputed ~ chunks.value:',
-    chunks.value
-  )
   const loaded = chunks.value
     .map((item) => {
       return item.chunk.size * item.progress
     })
     .reduce((acc, cur) => acc + cur, 0)
   const num = Number((loaded / file.value.size).toFixed(2))
-  console.log('🚀 ~ file: index.vue:98 ~ uploadProgressComputed ~ num:', num)
   return num
 })
 const handleFileChange = (event: Event) => {
@@ -251,14 +246,24 @@ const handleUpload = async () => {
     //   return
     // }
     chunks.value = createFileChunk()
-    console.log(
-      '🚀 ~ file: index.vue:253 ~ handleUpload ~ chunks.value:',
-      chunks.value
-    )
     // const hash = await calculateHashWorker(chunks)
     // console.log('🚀 ~ file: index.vue:125 ~ handleUpload ~ hash:', hash)
     // const hash1 = await caluateHashIdle(chunks)
     // console.log('🚀 ~ file: index.vue:127 ~ handleUpload ~ hash1:', hash1)
+
+    // 询问后端，文件是否上传过，如果没有，是否有存在的切片
+    const res: any = await checkFile({
+      data: {
+        hash: hash.value,
+        ext: (file.value?.name as string)?.split('.').pop()
+      }
+    })
+    console.log('🚀 ~ file: index.vue:266 ~ handleUpload ~ res:', res)
+    const { uploaded } = res?.data
+    if (uploaded) {
+      console.log('秒传成功')
+      return
+    }
     const hash2 = await calculateHashSample()
     hash.value = hash2
     chunks.value = chunks.value.map((chunk, index) => {
@@ -274,6 +279,7 @@ const handleUpload = async () => {
     })
 
     await uploadChunks()
+
     // const formData = new FormData()
     // formData.append('file', file.value)
     // formData.append('name', 'file')
@@ -302,7 +308,6 @@ const uploadChunks = async () => {
       return form
     })
     .map(async (form: any, index: any) => {
-      console.log('🚀 ~ file: index.vue:323 ~ .map ~ form:', form)
       const config = {
         data: form,
         onUploadProgress: (progressEvent: any) => {
@@ -317,17 +322,14 @@ const uploadChunks = async () => {
 
   // @todo 并发量控制
   await Promise.all(requests)
-  await mergeRequest()
-}
-
-const mergeRequest = async () => {
-  await mergeFile({
+  const res = await mergeFile({
     data: {
       ext: (file.value?.name as string)?.split('.').pop(),
       size: CHUNK_SIZE,
       hash: hash.value
     }
   })
+  console.log('🚀 ~ file: index.vue:321 ~ uploadChunks ~ res:', res)
 }
 
 const bindEvents = function () {
