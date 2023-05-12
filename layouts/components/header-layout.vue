@@ -26,7 +26,7 @@ const handleSelect = (key: string, keyPath: string[]) => {
 
 <style lang="scss" scope>
 .demo-color-block {
-  width: 1150px;
+  // width: 1150px;
   margin: 0 auto;
   .flex-grow {
     flex-grow: 1;

@@ -68,6 +68,7 @@
 </template>
 
 <script lang="ts" setup>
+import { AnyAaaaRecord } from 'dns'
 import sparkMD5 from 'spark-md5'
 import { getUserInfo, uploadFile, mergeFile, checkFile } from '@/service/user'
 const fileInput = ref<HTMLInputElement | null>(null)
@@ -87,7 +88,7 @@ const uploadProgressComputed = computed(() => {
   }
   const loaded = chunks.value
     .map((item) => {
-      return item.chunk.size * item.progress
+      return item.chunk?.size * item.progress
     })
     .reduce((acc, cur) => acc + cur, 0)
   const num = Number((loaded / file.value.size).toFixed(2))
@@ -143,7 +144,7 @@ const isImage = async (file: any) => {
   return (await isGif(file)) || (await isPng(file)) || (await isJpg(file))
 }
 
-const CHUNK_SIZE = 1 * 1024 * 1024
+const CHUNK_SIZE = 0.5 * 1024 * 1024
 const createFileChunk = (size = CHUNK_SIZE) => {
   const chunks = []
   let cur = 0
@@ -246,9 +247,14 @@ const handleUpload = async () => {
     //   return
     // }
     chunks.value = createFileChunk()
+    console.log(
+      '🚀 ~ file: index.vue:249 ~ handleUpload ~  chunks.value:',
+      chunks.value
+    )
     // const hash = await calculateHashWorker(chunks)
     // console.log('🚀 ~ file: index.vue:125 ~ handleUpload ~ hash:', hash)
-    // const hash1 = await caluateHashIdle(chunks)
+    const hash1 = await caluateHashIdle(chunks.value)
+    hash.value = hash1
     // console.log('🚀 ~ file: index.vue:127 ~ handleUpload ~ hash1:', hash1)
 
     // 询问后端，文件是否上传过，如果没有，是否有存在的切片
@@ -259,13 +265,12 @@ const handleUpload = async () => {
       }
     })
     console.log('🚀 ~ file: index.vue:266 ~ handleUpload ~ res:', res)
-    const { uploaded } = res?.data
+    const { uploaded, uploadList } = res?.data
     if (uploaded) {
       console.log('秒传成功')
       return
     }
-    const hash2 = await calculateHashSample()
-    hash.value = hash2
+    // const hash2 = await calculateHashSample()
     chunks.value = chunks.value.map((chunk, index) => {
       // 切片的名字 hash + index
       const name = hash.value + '-' + index
@@ -274,11 +279,11 @@ const handleUpload = async () => {
         name,
         index,
         chunk: chunk.file,
-        progress: 0
+        progress: uploadList.includes(name) ? 100 : 0
       }
     })
 
-    await uploadChunks()
+    await uploadChunks(uploadList)
 
     // const formData = new FormData()
     // formData.append('file', file.value)
@@ -297,31 +302,38 @@ const handleUpload = async () => {
   }
 }
 
-const uploadChunks = async () => {
+const uploadChunks = async (uploadList = []) => {
+  console.log(chunks.value)
   const requests = chunks.value
-    .map((chunk: any, index: any) => {
+    .filter((chunk) => {
+      return !uploadList.includes(chunk?.name as never)
+    })
+    .map((chunk: any) => {
       const form = new FormData()
       form.append('chunk', chunk.chunk)
       form.append('hash', chunk.hash)
       form.append('name', chunk.name)
-      console.warn(form)
-      return form
+      return { form, index: chunk.index }
     })
-    .map(async (form: any, index: any) => {
-      const config = {
-        data: form,
-        onUploadProgress: (progressEvent: any) => {
-          // 不是整体的进度条了，而是每个区块有自己的进度条，怎提的进度条需要计算
-          chunks.value[index].progress = Number(
-            ((progressEvent.loaded / progressEvent.total) * 100).toFixed(2)
-          )
-        }
-      }
-      return await uploadFile(config)
-    })
+  // .map(({ form, index }) => {
+  //   const config = {
+  //     data: form,
+  //     onUploadProgress: (progressEvent: any) => {
+  //       // 不是整体的进度条了，而是每个区块有自己的进度条，怎提的进度条需要计算
+  //       chunks.value[index].progress = Number(
+  //         ((progressEvent.loaded / progressEvent.total) * 100).toFixed(2)
+  //       )
+  //     }
+  //   }
+  //   return uploadFile(config)
+  // })
 
   // @todo 并发量控制
-  await Promise.all(requests)
+  // 尝试申请tcp连接过多，也会造成卡顿
+  // 异步并发数控制
+  // await Promise.all(requests)
+  await sendRequest(requests, 2)
+  console.log('🚀 ~ file: index.vue:350 ~ uploadChunks ~ requests:', requests)
   const res = await mergeFile({
     data: {
       ext: (file.value?.name as string)?.split('.').pop(),
@@ -330,6 +342,47 @@ const uploadChunks = async () => {
     }
   })
   console.log('🚀 ~ file: index.vue:321 ~ uploadChunks ~ res:', res)
+}
+const sendRequest = (requests: any, limit = 4) => {
+  // limit并发数
+  // 一个数组，长度为limit
+  return new Promise((resolve, reject) => {
+    const len = requests.length
+    let count = 0
+    const start = async () => {
+      const task = requests.shift()
+      console.log('🚀 ~ file: index.vue:358 ~ start ~ task:', task)
+      console.log(chunks.value)
+
+      if (task) {
+        const { form, index } = task
+        const config = {
+          data: form,
+          onUploadProgress: (progressEvent: any) => {
+            // 不是整体的进度条了，而是每个区块有自己的进度条，怎提的进度条需要计算
+            console.log(
+              '🚀 ~ file: index.vue:368 ~ start ~  chunks.value:',
+              chunks.value
+            )
+            chunks.value[index].progress = Number(
+              ((progressEvent.loaded / progressEvent.total) * 100).toFixed(2)
+            )
+          }
+        }
+        await uploadFile(config)
+        if (count === len - 1) {
+          resolve(null)
+        } else {
+          count++
+          start()
+        }
+      }
+    }
+    while (limit > 0) {
+      start()
+      limit -= 1
+    }
+  })
 }
 
 const bindEvents = function () {
@@ -344,7 +397,7 @@ const bindEvents = function () {
   })
   dragDom?.addEventListener('drop', (e: any) => {
     const fileList = e.dataTransfer.files
-    console.log(fileList)
+    // console.log(fileList)
     dragDom.style.borderColor = '#eee'
     file.value = fileList[0]
     e.preventDefault()

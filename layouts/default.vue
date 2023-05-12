@@ -19,7 +19,7 @@ import headerLayout from './components/header-layout.vue'
   text-align: center;
 }
 .content {
-  width: 1150px;
+  width: 80%;
   margin: 0 auto;
 }
 .footer {
