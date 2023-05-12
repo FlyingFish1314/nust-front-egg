@@ -313,7 +313,7 @@ const uploadChunks = async (uploadList = []) => {
       form.append('chunk', chunk.chunk)
       form.append('hash', chunk.hash)
       form.append('name', chunk.name)
-      return { form, index: chunk.index }
+      return { form, index: chunk.index, error: 0 }
     })
   // .map(({ form, index }) => {
   //   const config = {
@@ -343,17 +343,17 @@ const uploadChunks = async (uploadList = []) => {
   })
   console.log('🚀 ~ file: index.vue:321 ~ uploadChunks ~ res:', res)
 }
+// 上传可能报错，报错之后，进度条变红，开始重试，一个切片重试失败三次，整体全部中止
 const sendRequest = (requests: any, limit = 4) => {
   // limit并发数
   // 一个数组，长度为limit
   return new Promise((resolve, reject) => {
     const len = requests.length
     let count = 0
+    let isStop = false
     const start = async () => {
+      if (isStop) return
       const task = requests.shift()
-      console.log('🚀 ~ file: index.vue:358 ~ start ~ task:', task)
-      console.log(chunks.value)
-
       if (task) {
         const { form, index } = task
         const config = {
@@ -369,8 +369,19 @@ const sendRequest = (requests: any, limit = 4) => {
             )
           }
         }
-        await uploadFile(config)
-        if (count === len - 1) {
+        const res = await uploadFile(config)
+        console.log('🚀 ~ file: index.vue:372 ~ start ~ res:', res.code === 0)
+        if (res.code !== 0) {
+          chunks.value[index].progress = -1
+          if (task.error < 3) {
+            task.error++
+            requests.unshift(task)
+            start()
+          } else {
+            reject(-1)
+            isStop = true
+          }
+        } else if (count === len - 1) {
           resolve(null)
         } else {
           count++

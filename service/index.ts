@@ -7,6 +7,7 @@ export interface YWZResponse<T> {
   statusCode: number
   desc: string
   result: T
+  code?: number
 }
 
 // 重写返回类型
