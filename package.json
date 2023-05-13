@@ -36,14 +36,17 @@
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.1.0",
+    "@highlightjs/vue-plugin": "^2.1.0",
     "@pinia/nuxt": "^0.4.9",
     "axios": "^1.4.0",
     "element-plus": "^2.3.4",
+    "highlight.js": "^11.8.0",
     "marked": "^5.0.2",
     "normalize.css": "^8.0.1",
     "pinia": "^2.0.35",
     "save": "^2.9.0",
-    "spark-md5": "^3.0.2"
+    "spark-md5": "^3.0.2",
+    "vue3-highlightjs": "^1.0.5"
   },
   "config": {
     "commitizen": {

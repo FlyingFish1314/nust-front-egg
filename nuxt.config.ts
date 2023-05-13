@@ -6,9 +6,6 @@ export default defineNuxtConfig({
   },
   // 配置nuxt3的扩展模块
   modules: ['@pinia/nuxt', '@element-plus/nuxt', '@nuxtjs/eslint-module'],
-  types: {
-    marked: '@types/marked'
-  },
   nitro: {
     devProxy: {
       '/api': {
