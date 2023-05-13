@@ -1,13 +1,12 @@
 <template>
-  <div class="layout">
-    <div class="header">
-      <headerLayout></headerLayout>
-    </div>
-    <!-- 页面的内容 -->
-    <div class="content">
-      <slot></slot>
-    </div>
-    <div class="footer">我是footer</div>
+  <div class="common-layout">
+    <el-container>
+      <el-header>
+        <headerLayout></headerLayout>
+      </el-header>
+      <el-main><slot></slot></el-main>
+      <el-footer>Footer</el-footer>
+    </el-container>
   </div>
 </template>
 

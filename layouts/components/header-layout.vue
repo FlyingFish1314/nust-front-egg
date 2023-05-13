@@ -9,6 +9,7 @@
     >
       <el-menu-item index="/">首页</el-menu-item>
       <el-menu-item index="/personCenter">个人中心</el-menu-item>
+      <el-menu-item index="/editor/new">写文章</el-menu-item>
       <el-menu-item index="/login">登录</el-menu-item>
     </el-menu>
   </div>
